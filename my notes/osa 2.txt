@@ -1,0 +1,121 @@
+Viikko2:
+
+ÄLÄ aseta mapilla key:ksi indeksiä, voi aiheuttaa ongelmia, käytä sen sijaan id tms.
+	https://robinpokorny.medium.com/index-as-a-key-is-an-anti-pattern-e0349aece318
+	
+	-Jos listasta poistetaan tai lisätään + sortataan niin muuttaa järjestystä, jolloin indeksit muuttuvat, ja väärää dataa näytetään
+	
+	TL;DR: Generate a unique id for every item and use it as key when rendering the list.
+
+	-Jos KAIKKI nämä ehdot täyttyvät niin sitten id on ihan fine
+		the list and items are static–they are not computed and do not change;
+		the items in the list have no ids;
+		the list is never reordered or filtered.
+		
+	-Huom. id tulee asettaa myös omille komponenteille vaika niillä ei olisi omaa key-kenttää (se vissiin joku reactin oma joka kaikilla komponenteilla automaagisesti)
+		const Note = ({ note }) => {  
+			return (    
+				<li>{note.content}</li>  
+			)
+		}
+			
+		const App = ({ notes }) => {
+		  return (
+			<div>
+			  <h1>Notes</h1>
+			  <ul>
+				{notes.map(note =>           <Note key={note.id} note={note} />        )}      </ul>
+			</div>
+		  )
+		}
+
+Reduce
+	const total = parts.reduce((accumulator, part) => accumulator + part.exercises, 0)
+		tai
+	const total = parts.reduce((accumulator, {exercises}) => accumulator + exercises, 0)
+	
+event.preventDefault()
+	-Estää formien oletusarvoisen toiminnan (johon kuuluu mm. sivun uudelleen lataus)
+	-Muista aina formeissa yms. laittaa funktion alkuun event.preventDefault() jotta sivu ei uudelleenlatautuisi (huom uudelleenlataus =/= uudelleenrenderöinti)
+
+vertailuoperaattorit == ja ===
+	-javascriptissä == ei toimi aina loogisesti, parempi käyttää ===
+	
+	https://developer.mozilla.org/en-US/docs/Web/JavaScript/Equality_comparisons_and_sameness
+	
+	-esim:
+		var num = 0;
+		var obj = new String('0');
+		num == obj // true
+		num === obj // false
+		
+Filterit yms.
+	-Älä toteuta filtteriä silleen että statessa on "nykyinen" ja "alkuperäinen" versio samasta listasta
+	-Vaan tee niin että statessa alkuperäinen lista ja koodissa lista filtteröidään stateen talletetun filtterin perusteella, esim näin:
+		const [ entries, setEntries] = useState([
+			{
+			   name: 'Arto Hellas',
+			   number: '040-1231244'
+			}
+		 ]) 
+		const [ filter, setFilter ] = useState('') // tarvii toki myös jonkin tapahtumakäsittelijän joka päivittää filteriä setFilter -metodilla
+		 
+		const filteredEntries = entries.filter((entry) => entry.name.toLowerCase().includes(filter.toLowerCase()))
+		
+Asynkronisuus
+	-Javascript-enginet eli suoritusympäristöt eivät suorita kaikkia koodia riviriviltä, vaan ne noudattavat asynkronista mallia
+		-I/O -operaatiot (muutamaa poikkeusta lukuunottamatta) suoritetaan ei-blokkaavana, eli operaatioiden tulota ei jäädä odottamaan vaan koodin suoritusta
+		jatketaan heti eteenpäin
+
+	-Siinä vaiheessa kun operaatio valmistuu tai tarkemmin sanoen jonain valmistumisen jälkeisenä ajanhetkenä, kutsuu Javascript-engine operaatiolle rekisteröityjä
+	tapahtumakäsittelijöitä
+	
+	-Koska nykyiset javascript-moottorit ovat yksisäikeisiä, on siksi pakko käyttää ei-blokkaavaa mallia
+		-Muuten selain 'jäätyisi' siksi aikaa kun esim. palvelimella haetaan dataa
+		
+Promiset
+	https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise
+	
+	Kolme tilaa:
+		-pending, operaatio ei vielä tapahtunut
+		-fulfilled/resolved, operaatio onnistuneesti valmistumisen
+		-rejected, operaatio epäonnistui
+		
+Effect hookit
+	Asetetaan näin:
+		const hook = () => {
+		  console.log('effect')
+		  axios
+			.get('http://localhost:3001/notes')
+			.then(response => {
+			  console.log('promise fulfilled')
+			  setNotes(response.data)
+			})
+		}
+
+		useEffect(hook, []) // HUOMAA TÄMÄ!!
+	
+	-funktiolle useEffect
+		-By default, effects run after every completed render, but you can choose to fire it only when certain values have changed.
+		
+		-eka parametri on funktio, itse efekti
+		-tokaa parametria kyätetään tarkentamaan sitä, mmiten usein efekti suoritetaan
+			https://reactjs.org/docs/hooks-reference.html#conditionally-firing-an-effect
+			-jos toisena parametrina on tyhjä taulukko [], SUORITETAAN EFEKTI AINOASTAAN KOMPONENTIN ENSIMMÄISEN RENDERÖINNIN JÄLKEEN
+			
+Muista tapahtumankäsittelijöille parametri event
+	 const handleFilterChange = (event) => {
+		setFilter(event.target.value)
+	 }
+	 
+API-avaimet
+	Talleta API-avaimet AINA ympäristömuuttujiin, ei suoraan koodiin
+	
+Aikaleimat
+	-ÄLÄ generoi aikaleimoja frontendissä
+		-Selaimen kello voi olla mitä sattuu
+		
+	-Generoi päiväykset palvelimella
+	
+	
+BUTTONILLE ONCLICK, EI ONCHANGE!!!!!!! TOSI TÄRKEÄ TÄN TAKIA KUSIN JOKU 30MIN

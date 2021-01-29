@@ -1,0 +1,349 @@
+node.js importit ovat muotoa const http = require('http')
+	-frontendissa importit ovat taas muotoa import http from 'http'
+		-Selaimen puolella käytämme ES6:n moduuleja
+			-Määritellään exportilla ja otetaan käyttöön importilla
+			
+	-node.js käyttää ns. Common.js moduuleja
+		-johtuu siitä että node.js oli tarvetta moduuleille kauan ennen kuin Javascript tuki sitä kielen tasolla
+		
+Semanttinen versiointi
+	"express": "^4.17.1"
+		-Merkintä tarkoittaa sitä, että kun projektin riippuuudet päivitetään, asennetaan versio joka on vähintään 4.17.1, mutta asennetuksi voi tulla versio, jonka
+		patch eli viimeinen numero tai minor eli keskimmäinen numero voi olla suurempi
+		-Pääversio eli major täytyy kuitenkin olla sama
+			-Saman majorin myöhemmät versiot ovat yleensä takaisinsopivia aiempiin versioihin
+				-Mutta uudemmassa majorissa näin ei välttämättä ole
+				
+REST (kapea määrittely)
+	-Modelit yms. jaettu resursseihin
+		-Jokaisella resurssilla yksilöivä osoite
+			-Yksilöivä url on muotoa .com/api/resurssityyppi/resurssin_id
+			-esim www.example.com/api/notes/23saf
+		
+		-Resurssikokoelmien osoitteet ovat muotoa .com/api/resurssityyppi
+			-esim. www.example.com/api/notes
+			
+	-Resursseille voi suorittaa erilaisia operaatioita
+		-Suoritettavan operaation määrittelee HTTP-operaation tyyppi (jota kutsutaan joskus myös verbiksi)
+		
+		URL			Verbi	Toiminnallisuus
+		notes/id	GET		Hakee yksittäisen resurssin
+		notes		GET		Hakee kokoelman kaikki resurssit
+		notes		POST	Luo uuden resurssin pyynnön mukana olevasta datasta
+		notes/id	DELETE	Poistaa yksilöidyn resurssin
+		notes/id	PUT		Korvaa yksilöidyn resurssin pyynnön mukana tulevalla datalla
+		notes/id	PATCH	Korvaa yksilöidyn resurssin osan pyynnön mukana olevalla datalla
+		
+		-Tätä kutsutaan RESTissä uniform interfaceksi
+			-Eli jossain määrin yhtenäinen tapa määritellä rajapintoja, jotka mahdollistuvat (tietyin tarkennuksin) järjestelmien yhteiskäytön
+			
+	-Tätä on kypsyystason 2 REST
+		-RESTin keksijän mukaan ei kuitenkaan "todellinen" REST (joka hänen mielestään on kypsyystaso3)
+		
+	-Joskus tätä kutsutaan resurssipohjaiseksi arkkitehtuurityyliksi
+		-CRUD-tyylinen manipuloinnin mahdollistava API
+			-CRUD = create, read, update, delete
+			
+request.params
+	-Mukana tuleva data on ilmeisesti string-muotoista
+	-Jos esim id ovat kokonaislukuja eikä stringejä, niin muunna request.params data kokonaisluvuksi
+		const id = Number(request.params.id)
+		
+Pelkkä olio if-lauseessa
+	if (note) {    
+		response.json(note)  
+	} else {    
+		response.status(404).end()  
+	}
+	
+	-Mikä tahansa Javascript-olio on truthy https://developer.mozilla.org/en-US/docs/Glossary/Truthy
+	-Undefined on falsy https://developer.mozilla.org/en-US/docs/Glossary/Falsy
+		-Muita falsyjä ovat 
+			-false
+			-0
+			--0
+			-0n
+			-""
+			-null
+			-undefined
+			-NaN
+			
+		-Loput ovat truthyjä
+		
+DELETE-operaation palautuskoodi
+	-204
+	-Ei yksimielisyyttä pitäisikö palauttaa 204 vai 404 jos yritetään poistaa resurssia jota ei olemassa
+	
+	
+Backendissä HTTP-headerien debuggaus
+	-Välillä debugatessa tulee vastaan tilanteita, joissa backendissä on tarve selvittää, mitä headereja HTTP-pyynnöille on asetettu
+	-Eräs menetelmä tähän on request-olon melko kehnosti nimetty metodi get, jnoka avulla voi selvittää yksittäisen headerin arvon
+		http://expressjs.com/en/4x/api.html#req.get
+		
+	-request-oliolla on kuitenkin myös kenttä headers, jonka arvona ovat kaikki pyyntöön liittyvät headerit
+	-ongelmia voi esim syntä, jos jättää vahingossa VS Code REST-clientillä ylimmän rivin ja headerit määittelevien rivien väliin tyhjän välin
+		-Tällöin REST-client tulkitsee, että illekään headerille ei aseteta arvoa ja näin backend ei osaa tulkita pyynnön mukana olevaa dataa JSON:iksi
+		
+		
+Taulukon spread-syntaksi
+	https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax
+	
+	const generateId = () => {
+	  const maxId = notes.length > 0
+		? Math.max(...notes.map(n => n.id))
+		: 0
+	  return maxId + 1
+	}
+	
+	-Mitä Math.max(...notes.map(n => n.id)) tapahtuu?
+		-notes.map(n => n.id) muodostaa taulukon, joka koostuu muistiinpanojen id-kentistä
+		-Math.max palauttaa maksimin sille paramterina annetuista luvuista
+			-notes.map(n => n.id) on kuitenkin taulukko, joten se ei kelpaa parametriksi komennolle Math.max
+				-Taulukko voidaan muuttaa yksittäisiksi luvuiksi käyttäen taulukon spread-syntaksia, eli kolmea pistettä ...taulukko
+				
+				
+		-eli siis muuttaa taulukon yksittäisiksi luvuiksi jotta kelpaa math.maxille
+			esim Math.max(1, 2, 3, 4,...)
+			
+app.use(express.json())
+	-JSON-parseri
+	-Pääsee pyynnön mukana tulleeseen dataan helposti käsiksi
+		-Dataan pääsee käsiksi olion request kentän body avulla
+		
+	-Ilman json-parserin lisäämistä eli komentoa app.use(express.json()) pyynnön kentän body arvo on määrittelemätön
+		-json-parserin toimintaperiaatteena on, että se ottaa pyynnön mukana olevan JSON-muotoisen data, muuttaa sen Javascript-olioksi ja sijoittaa request-olion
+		kenttään body ennen kuin routen käsittelijää kutsutaan
+		
+	const express = require('express')
+	const app = express()
+
+	app.use(express.json()) 
+
+	//...
+
+	app.post('/api/notes', (request, response) => {
+	  const note = request.body
+	  console.log(note)
+
+	  response.json(note)
+	})
+	
+HTTP-pyyntötyypit
+	-Kaksi eri tyyppiä:
+	
+	-safe
+		-Pyynnön suorittaminen ei saa aiheuttaa palvelimelle sivuvaikutuksia, esim muuttaa tietokannan tilaa
+		-Tulee ainoastaan palauttaa palvelimella olevaa dataa
+		
+		-GET
+		-HEAD (toimii kuten GET mutta palauttaa vain statuskoodin ja headerit, ei palauta bodyä)	
+		
+		In particular, the convention has been established that the GET and HEAD methods SHOULD NOT have the significance of taking an action other than retrieval. 
+		These methods ought to be considered "safe".
+		
+	-idempotent
+		-Pyynnöllä on sivuvaikutuksia, eli vaikuttaa tietokantaan
+		-Lopputulos on sama suorittaessa pyyntö yhden tai useamman kerran
+			-Esim. jos tehdään PUT pyyntö osoitteeseen /api/notes/id ja pyynnön mukana on { content = "ei sivuvaikutuksia", important: true }, on lopputulos sama
+			riippumatta siitä, kuinka monta kertaa pyyntö suoritetaan
+		
+		-PUT
+		-DELETE
+		-GET
+		-HEAD (GET ja HEAD ovat sekä safe että idempotent)
+		
+	-POST ei ole kumpikaan
+		-Jos tehdään POST pyyntö ylemmän PUT esimerkin datalla syntyy 5 eri note-oliota jolla samat kentät
+		
+Same origin policy ja CORS
+	https://en.wikipedia.org/wiki/Cross-origin_resource_sharing
+	https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy
+	https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+		
+	-CORS (cross origin resource sharing)
+		-Mekanismi joka sallii rajoitettujen resurssien pyytämisen muusta domainista kuin resurssia tarjoavasta domainista
+		-Websovelluksen selaimessa suoritettava Javascript-koodi saa oletusarvoisesti kommunikoida vain samassa originissa olevan palvelimen kanssa
+			-Meidän kontekstissa localhost:3000 ja localhost:3001 eri origineja (koska käyttäät eri portteja)
+			
+	-Origin https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy
+		-Kahdella URLilla on sama origin jos protokolla, portti (jos määritelty) ja host ovat samat molemmille
+			-kutsutaan scheme/host/port tupleksi tai pelkäksi tupleksi
+				-(tuple on joukko asioita jotka yhdessä muodostavat ominaisuuden, geneerinen muoto double/triple/quadruple/quintuple/jne...)
+				
+		-Taulkko (verrattuna http://store.company.com/dir/page.html)
+			URL												Lopputulos		Syy
+			http://store.company.com/dir2/other.html		Sama origin		Vain path eroaa
+			http://store.company.com/dir/inner/another.html	Sama origin		Vain path eroaa
+			https://store.company.com/page.html				Failure			Eri protokolla (?)
+			http://store.company.com:81/dir/page.html		Failure			Eri portti (http:// on portti 80 oletusarvoisesti)
+			http://news.company.com/dir/page.html			Failure			Eri host
+			
+	-Jos CORS ei enabloitu palvelimella, niin estää pyynnöt XMLHttpRequest:ista ja Fetch API:ista
+		-axios käyttää XMLHttpRequestia
+
+
+Dokumenttitietokannat (document-oriented database)
+	https://github.com/fullstack-hy2020/misc/blob/master/dokumenttitietokannat.MD
+	https://en.wikipedia.org/wiki/Document-oriented_database#Relationship_to_relational_databases
+	
+	-MongoDb on dokumenttitietokantaohjelma
+	
+	-Sijoittuvat jonnekin relaatiotietokantojen ja avain-arvo tietokantojen puolen välin tienoille
+	-Yksi "NoSql"-tietokantojen pääkategorioista
+	-Perustuvat avain-arvo tietokantojen lailla arvojen tallettamiseen avaimen perusteella
+		-Arvot ovat kuitenkin monimutkaisia olioita, "dokumentteja"
+	
+	-Dokumentti koostuu avain-arvo pareista (kentistä)
+		-Dokumentin kenttinä voi olla normaaleja arvoja (esim merkkijonoja tai numeroita) tai kokonaisia olioita
+		
+	-Tosin kuin avain-arvo tietokannoissa, dokumenttikannat "näkevät" tietokantaan talletettujen dokumenttien sisään, ja mahdollistavat talletettujen dokumenttien sisällön suhteen
+	tehdyt kyselyt
+	-Dokumenttitietokannoissa käytetään tiedon loogisena esitysmuotona yleensä JSON:ia
+	-Kokoelmille ei määritellä mitään skeemaa, täysin sovellusten vastuulla että tietokantaan talletetaan järkevää dataa, ja että kannasta luettavaa dataa tulkitaan oikein
+		-Saman nimiset kentät voivat sisältää eri dokumenteissa eri tyyppisä arvoja
+		-Tosin frameworkit kuten mongoose.js määrittelevät sovellustasolla tiedolle skeeman
+	
+	-Dokumenttitietokannoilla voi tallentaa olioita toistensa sisään
+		-Voi myös tehdä "relaatiomallin tapaan", että sisäistä oliota varten oma kokoelma, ja ulkoisella oliolla on viite sisäisen olion dokumenttiin (tämän id)
+			{
+			  "id" : ObjectId("59"),
+			  "nimi" : "Pekka Mikkola",
+			  "opiskelijanumero" : 14112345,
+			  "osoite" : ObjectId("123")
+			}
+			
+			{
+			  "id" : ObjectId("123"),
+			  "katu" : "Tehtaankatu 10 B 1",
+			  "postinumero" : "00120",
+			  "postitoimipaikka" : "Helsinki"
+			}
+			
+		-Huom! Dokumenttitietokannat eivät tarjoa tietokannan tasolla liitosoperaatio, täytyy sovelluksessa määritellä erikseen ylläolevan osoitteen hakeminen opiskelijan hakemisen 
+		yhteydessä
+			-On kuitenkin monia kirjastoja jotka toteuttavat liitosoperaation siten että sovelluskehittäjien ei tarvitse siitä huolehtia
+	
+	-Luokka ja olio -vertaus:
+		-Luokka: Kokoelma
+		-Olio: Dokumentti
+	
+	
+	-Dokumenttitietokantojen skeemojen muodostaminen vaikeampaa
+		-Relaatiotietokannoissa yleensä jokaiselle tietokannalle yksi järkevä tapa muodostaa skeemat (voidaan selvittää erilaisilla menetelmillä)
+		-Koska dokumenttitietokannoissa dokumentteihin voi sisältää sisäisiä olioita, ei pakko aina käyttää esim. liitostaulun kaltaista ratkaisua
+			-Tuo kuitenkin monia eri vaihtoehtoja joista hankala valita 
+			
+		-Ei ole yhtä "oikeaa" vastausta miten sovelluksen dataa kannattaisi mallintaa dokumenttitietokannan kokoelmiksi ja dokumenteiksi
+			-Paras tapa aina sovelluskohtainen, datamalli kannattaa valita siten, että se tekee yleisimpien operaatioiden suorituksen nopeaksi ja helpoksi
+	
+	-Dokumenttitietokannat eivät tue useamman kokoelman yhtäaikaista muuttamista transaktionaalisesti (eli joko kaikki suoritetaan loppuun tai sitten ei mitään)
+		-Mutta yhteen kokoelmaan suoritettavat tapahtumat tehdään kuitenkin aina transaktionaalisesti
+	
+	-Dokumenttitietokannat vs relaatiotietokannat
+		-Dokumenttitietokannat
+			-Ei skeemoja, sovellusten vastuulla pitää huoli talletettavan datan ja sen tulkitsemisen oikeellisuudesta
+			-Ei tietokantatason liitosperaatiota (eli yllä olevan esimerkin kaltaiset alisteiset oliot tulee hakea manuaalisesti)
+			-Skeeman muodostaminen vaikeampaa	
+			-Ei standardisoitua kyselykieltä
+			-Ei tukea usean kokoelman yhtäaikaiselle muuttamiselle transaktionaalisesti
+			
+		-Relaatiotietokannat
+			-Tiukasti määritellyt skeemat (mitä kenttiä ja mitä arvoja näillä kentillä)
+			-Tietokantatason liitosoperaatio
+			-Skeeman muodostaminen helppoa
+			-Standardi kyselykieli SQL
+			-Usean kokoelman muuttaminen yhtäaikaisesti transaktionaalisesti
+			
+Mongoose
+	-Dokumenttitietokannat ovat skeemattomia, eli tietokanta itsessään ei välitä mitään sinne talletettavan tiedon muodosta
+	-Mongoosea käytettäessä periaatteena onk uitenkin se, että tietokantaan talletettavalle tiedolle määritellään SOVELLUKSEN KOODIN TASOLLA SKEEMA, joka määrittelee minkä muotoisia
+	olioita kannan eri kokoelmiin talletetaan
+	
+	-.save() palauttaa proimsen, jolle voidaan ekisteröidä then-metodin avulla tapahtumankäsittelijä
+		note.save().then(result => {
+		  console.log('note saved!')
+		  mongoose.connection.close()
+		})
+		
+		-Tallennusoperaation tulos on parametrissa result
+		
+		
+	-HUOM! Mongoosen dokumentaatiossa käytetään joka paikassa promisejen .then metodin sijaan takaisinkutsufunktiotia
+		-Ei kannata suoraan kopipasteta koodia, promisejen ja vanhanaikaisten callbackien sotkeminen samaa koodiin ei ole koin järkevää
+		
+	-Mongoose tallentaa id:t muuttujaan '_id'
+		-frontend kuitenkin olettaa että id löytyy kentästä 'id'
+		
+		-Eräs tapa muotoilla Mongoosen palauttamat oliot haluttuun muotoon on muokata kannasta haettavilla oliolla olevan toJSON-metodin palauttamaa muotoa
+			noteSchema.set('toJSON', {
+			  transform: (document, returnedObject) => {
+				returnedObject.id = returnedObject._id.toString()
+				delete returnedObject._id
+				delete returnedObject.__v
+			  }
+			})
+			
+Hyvä workflow
+	-testaa ensin että muutos toimii backendissa
+		-Pyynnöt postmanilla tai visual studio coden REST clientillä
+		-Tarkastele tietokantaa atlasissa
+		-Tarkastele api-osoitetta
+		
+	-Kun kaikki toimii backendissa, siirry vasta sitten testailemaan frontendissä
+	
+	
+Middlewarejen käyttöönottojärjestys
+	https://fullstackopen.com/osa3/tietojen_tallettaminen_mongo_db_tietokantaan#middlewarejen-kayttoonottojarjestys
+
+	app.use(express.static('build'))
+	app.use(express.json())
+	app.use(logger)
+
+	app.post('/api/notes', (request, response) => {
+	  const body = request.body
+	  // ...
+	})
+
+	const unknownEndpoint = (request, response) => {
+	  response.status(404).send({ error: 'unknown endpoint' })
+	}
+
+	// olemattomien osoitteiden käsittely
+	app.use(unknownEndpoint)
+
+	const errorHandler = (error, request, response, next) => {
+	  // ...
+	}
+
+	// virheellisten pyyntöjen käsittely
+	app.use(errorHandler)
+	
+	tämä ei toimisi:
+		app.use(logger) // request.body on tyhjä
+
+		app.post('/api/notes', (request, response) => {
+		  // request.body on tyhjä
+		  const body = request.body
+		  // ...
+		})
+
+		app.use(express.json())
+		
+		-request.body olisi tyhjä olio
+		
+	Tämäkään ei toimi
+		const unknownEndpoint = (request, response) => {
+		  response.status(404).send({ error: 'unknown endpoint' })
+		}
+
+		// olemattomien osoitteiden käsittely
+		app.use(unknownEndpoint)
+
+		app.get('/api/notes', (request, response) => {
+		  // ...
+		})
+		
+		-Muita routeja ei olla vielä määritelty, joten aina johtaa unknownEndpointille
+		
+Promises
+	promise.then also returns a promise

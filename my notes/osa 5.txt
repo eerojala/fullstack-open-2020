@@ -1,0 +1,388 @@
+Ehdollinen renderöinti
+	-Yksi tapa tehdä ehdollinen renderöinti:
+	
+	const App = () => {
+	  // ...
+
+	  const loginForm = () => (
+		// ...
+	  )
+
+	  const noteForm = () => (
+		// ...
+	  )
+
+	  return (
+		<div>
+		  <h1>Notes</h1>
+
+		  <Notification message={errorMessage} />
+
+		    {user === null ?
+			  loginForm() :
+			  noteForm()
+			}
+		  
+		  ...
+		</div>
+	  )
+	}
+	
+Tokenin tallentaminen selaimen local storageen
+	-HUOM TÄRKEÄÄ!!!! TÄMÄ PUUTTUI MyVideoGameCollectionista
+	
+	https://developer.mozilla.org/en-US/docs/Web/API/Storage
+	
+	-Storage on ns. origin-kohtainen, eli jokaisella selaimella käytettävällä web-sovelluksella on oma storagensa
+	-HUOM!!!! koska storageen talletettavat arvot ovat merkkijonona, emme voi tallettaa storageen suoraan Javascript-oliota, vaan ne on muutettava ensin JSON-muotoon metodilla
+	JSON.stringify
+		-Vastaavasti kun JSON-muotoinen olio luetaan local storagesta on se parsittava takaisin Javascript-olioksi metodilla JSON.parse
+
+	-setItem talletetaan tiettyä avainta vastaava arvo
+		https://developer.mozilla.org/en-US/docs/Web/API/Storage/setItem
+		
+		window.localStorage.setItem('loggedInUser', JSON.stringify(user))
+		
+		-palauttaa undefined
+		
+	-getItem antaa avaimeen talletetun arvon
+		https://developer.mozilla.org/en-US/docs/Web/API/Storage/getItem
+		
+		    const loggedInUserJSON = window.localStorage.getItem('loggedInUser')
+
+			if (loggedInUserJSON) {
+			  const user = JSON.parse(loggedInUserJSON)
+			  setUser(user)
+			  blogService.setToken(user.token)
+			}
+				
+		-palauttaa:
+			-Jos avain olemassa: DOMString avainta vastaavasta arvosta
+			
+	-removeItem poistaa avaimeen talletetun arvon
+		https://developer.mozilla.org/en-US/docs/Web/API/Storage/removeItem
+		
+		window.localStorage.removeItem('loggedInUser')
+		
+		-palauttaa undefined
+			-Jos avain ei olemassa: null
+			
+	-local storagen arvoja voi tarkastella console.log(window.localStorage)
+	
+Effect Hook
+	Efektin parametrina oleva tyhjä taulukko varmistaa sen, että efekti suoritetaan ainoastaan kun komponentti renderöidään ensimmäistä kertaa
+	
+	  useEffect(() => {
+		noteService
+		  .getAll().then(initialNotes => {
+			setNotes(initialNotes)
+		  })
+	  }, [])
+
+	useEffect(() => {    
+		const loggedUserJSON = window.localStorage.getItem('loggedNoteappUser')    
+		if (loggedUserJSON) {      
+			const user = JSON.parse(loggedUserJSON)      
+			setUser(user)      
+			noteService.setToken(user.token)    
+		}  
+	}, [])
+	
+	https://reactjs.org/docs/hooks-reference.html#conditionally-firing-an-effect
+		-Tietoa miten effect hookkeja laukaistaan konditionaalisesti
+		
+Oneliner toggle:
+	setVisible(!visible)
+	
+	-ei tarvi siis laittaa esim:
+		if (visible) {
+			setVisible(false)
+		} else {
+			setVisible(true)
+		}
+
+ref
+	https://reactjs.org/docs/refs-and-the-dom.html
+	
+	-Voi käyttää keinona päästä käsiksi komponenttiin ja sen funktioihin itse komponentin ulkopuolelta
+	-Tää tuntuu vähän spagetilta mutta ilmeisesti ihan ok
+	-classittoman hook-pohjaisen reactin haittapuoli
+		
+	-kato app.js ja togglable.js esimerkki käytöstä
+	
+	https://reactjs.org/docs/hooks-reference.html#useref
+		-Luo ref:in jonka avulla voidaan päästä käsiksi lapsikomponentin funktioihin
+		
+		import React, { useState, useEffect, useRef } from 'react'
+		...
+		const blogFormRef = useRef() 
+		...
+		<Togglable buttonLabel='new blog' ref={blogFormRef}>...</Togglable
+		...
+		
+	https://reactjs.org/docs/react-api.html#reactforwardref
+		-Komponentti johon ref asetataan pitää luoda siten että luomisfunktio wrapataan forwardRef funktio-kutsuun, jotta komponentti pääsee siihen asetettuun refiin käsiksi
+	
+		const Togglable = React.forwardRef((props, ref) => {
+			...
+		)}
+	
+	https://reactjs.org/docs/hooks-reference.html#useimperativehandle
+		-Tällä voidaan palauttaa funktioita joihin halutaan päästä käsiksi funktion ulkopuolella
+		
+		import React, { useState, useImperativeHandle } from 'react'
+		
+		const Togglable = React.forwardRef((props, ref) => {
+			...
+			const toggleVisibility = () => {
+				setVisible(!visible)
+			}
+			...
+			
+		   useImperativeHandle(ref, () => {
+			 return { toggleVisibility }
+		   })
+		)}
+		
+	Tämän kaiken jälkeen päästään vihdoin käsiksi funktioon toggleVisibility:
+		const addBlog = async (blogObject) => {
+			try {
+			  const returnedBlog = await blogService.create(blogObject)
+			  setBlogs(blogs.concat(returnedBlog))
+			  displaySuccessNotification('Successfully added a new blog!')
+			  blogFormRef.current.toggleVisibility()
+			} catch (exception) {
+			  displayErrorNotification(exception)
+			}
+		}
+		
+Listan päivittäminen
+      // replace the old blog with the updated blog without affecting the order of the blogs
+      setBlogs(blogs.map(b => b.id === blog.id ? updatedBlog : b)) 
+	  
+	  
+	 Näin voi päivittää listan siten että päivitetty olio pysyy samalla paikalla listassa
+	 
+Päivitys palvelimella
+	-Muista että jos päivität id:tä joka viittaa alisteiseen olioon täytyy stringinä annettu id muuttaa id-objektisti tai sitten hakea tämän id-stringing pohjalta itse siihen viittaava objekti ja ottaa talteen sen id
+		-jälkimmäinen tapa ehkä parempi, tulee samalla varmistuttua onko annettu id validi
+		
+spread-syntaksi
+	-näin voi luoda uuden olion jolla muuten samat arvot kuin vanhalla paitsi jotkut arvot uudelleenmääritellään:
+		handleLike({...blog, likes: blog.likes + 1}) // creates a new object with the same values as blog with the exception of likes 
+		
+Reactin testit
+	-Kaksi ajattelutapaa
+		-Testit samaan hakemistoon kuin komponentit
+			-React oletusarvoisesti konfiguroitu näin
+			
+		-Testit omaan erilliseen hakemistoon
+		
+	-Kolme tapaa tutkia testattavan komponentin sisältöä
+		  const note = {
+			content: 'Component testing is done with react-testing-library',
+			important: true
+		  }
+
+		  const component = render(
+			<Note note={note} />
+		  )
+
+		  // tapa 1
+		  expect(component.container).toHaveTextContent(
+			'Component testing is done with react-testing-library'
+		  )
+
+		  // tapa 2
+		  const element = component.getByText(
+			'Component testing is done with react-testing-library'
+		  )
+		  expect(element).toBeDefined()
+
+		  // tapa 3
+		  const div = component.container.querySelector('.note')
+		  expect(div).toHaveTextContent(
+			'Component testing is done with react-testing-library'
+		  )
+		  
+		-Tapa 1: toHaveTextContent
+			-Etsii tiettyä tekstiä koko komponentin renderöimästä HTML-metodista
+			-Yksi jestin matcher-metodeista
+				https://github.com/testing-library/jest-dom#tohavetextcontent
+			
+		-Tapa 2: getByText
+			-render metodin palauttaman olion getByText-metodi palauttaa sen elementin jolla on parametrina määritelty teksti
+			-Jos elementtiä ei ole, tapahtuu poikkeus, eli mitään ekspektaatio ei välttämättä edes tarvittaisi
+			-Yksi testing libraryn query-metodeista
+				https://testing-library.com/docs/queries/about/
+				-Hakee renderöidystä komponentista jonkin ehdon täyttävän elementin
+				
+		-Tapa 3: querySelector
+			-etsii annetun CSS-selektorin perusteella
+			-Yksi testing libraryn query-metodeista
+				https://testing-library.com/docs/queries/about/
+				-Hakee renderöidystä komponentista jonkin ehdon täyttävän elementin
+				
+		-.debug() metodi tulostaa komponentin generoiman HTML
+			  const note = {
+				content: 'Component testing is done with react-testing-library',
+				important: true
+			  }
+
+			  const component = render(
+				<Note note={note} />
+			  )
+
+			  component.debug()
+			  
+Query selector
+	const div = component.container.querySelector('.togglableContent') // etsii komponenttia jolla tämän tyyppinen css-class
+	const showButton = component.container.querySelector('button') // etsii tämän tyyppistä komponenttia
+	const authorInput = component.container.querySelector('#author') // etsii komonenttia jolla tämän tyyppinen id
+	
+	-HUOM!!!! Ole tarkkana etumerkkien kanssa!
+	
+CI=True
+	-Defaulttina react projektien npm test ajaa watch-moodissa
+	-Jos haluaa testata vain kerran / katsoa coveragen pitää asettaa CI=True
+		komentorivillä:
+			set CI=true 
+
+		-huom set CI=false ei toimi, pitää sulkea ja avata komentorivi uudelleen
+	
+	-Coverage:
+		npm test -- --coverage
+		
+		-huom! ei toimi watch moodissa
+		
+		
+Frontendin testaaminen
+	-4.osassa teimme backendille integraatiotestejä (miten sovelluksen osat toimivat yhdessä (esim controller ja model))
+		-Backendin koodi melko suoraviivaista niin emme tehneet yksikkötestejä
+		
+	-5. osassa teimme yksittäisten komponettien yksikkötestejä
+		-Yksikkötestaus on toki välillä hyödyllistä, mutta kattavinkaan yksikkötestaus ei riitä antamaan riittävää luotettavuutta siitä, että järjestelmä toimii kokonaisuudessaan
+		-Voisimme tehdä frontendille useiden komponettien yhteistoiminallisuutta testaavia integraatiotestejä
+			-Tämä on tosin melko hankalaa koska saatettaisiin joutua mockkaamaan palvelimelta haettua dataa
+				-Päätämmekin keskittyä suoraan vain end-to-end testaamiseen osassa 5.d
+				
+	-Snapshot-testaus
+		https://jestjs.io/docs/en/snapshot-testing.html
+		
+		Jest tarjoaa "perinteisen" testaustavan lisäksi aivan uudenlaisen tavan testaukseen, ns. snapshot-testauksen. Mielenkiintoista snapshot-testauksessa on se, että sovelluskehittäjän ei tarvitse itse määritellä ollenkaan testejä, snapshot-testauksen käyttöönotto riittää.
+
+		Periaatteena on verrata komponenttien määrittelemää HTML:ää aina koodin muutoksen jälkeen siihen, minkälaisen HTML:n komponentit määrittelivät ennen muutosta.
+
+		Jos snapshot-testi huomaa muutoksen komponenttien määrittelemässä HTML:ssä, voi kyseessä joko olla haluttu muutos tai vahingossa aiheutettu "bugi". Snapshot-testi huomauttaa sovelluskehittäjälle, jos komponentin määrittelemä HTML muuttuu. Sovelluskehittäjä kertoo muutosten yhteydessä, oliko muutos haluttu. Jos muutos tuli yllätyksenä, eli kyseessä oli bugi, sovelluskehittäjä huomaa sen snapshot-testauksen ansiosta nopeasti.
+
+		Emme kuitenkaan käytä tällä kurssilla snapshot-testausta.
+		
+End-to-end testaus
+	https://en.wikipedia.org/wiki/System_testing
+	
+	-testaa järjestelmää kokonaisuutena
+		-back + front
+		-integraatiotesteissä testataan back/front sisäisten komponenttien toiminnallisuutta
+			-frontendin tapauksessa backendin toiminnallisuus mockataan
+			
+	-tutkivat järjestelmää saman rajapinnan kautta kuin todelliset käyttäjät		
+			
+	-Ongelmia
+		-Hankala konfiguroida
+		-Hitaita suorittaa
+		-Käyttöliittymän kautta suoritettavat teestit saattavat olla epäluotettavia (eng.: flaky)
+			https://en.wikipedia.org/wiki/System_testing
+			
+		
+Cypress
+	https://docs.cypress.io/guides/overview/why-cypress.html#In-a-nutshell
+	https://docs.cypress.io/guides/core-concepts/introduction-to-cypress.html#Cypress-Can-Be-Simple-Sometimes
+	
+	npm install --save-dev cypress
+		
+	frontend: package.json script
+		"cypress:open": "cypress open"
+			-käynnistää cypressin
+		
+	backend: package.json script
+		"cypress-test": "cross-env NODE_ENV=test node index.js"
+			-käynnistää backendin testausmoodissa, eli siten että NODE_ENV saa arvon test
+		
+	-kun back- ja frontend käynnissä:
+		npm run cypress:open
+		
+	-cypress testit voidaan sijoittaa joko front- tai back-endiin, tai myöskin kokonaan omaan repoonsa
+	-olettaa että testattava järjestelmä käynnissä, ei käynnistä itse
+	
+	
+	-Älä käytä nuolifunktioita cypress-testeissä
+		-Cypress käyttää vissiin Mocha-kirjastoa, ja siinä kuulemma nuolifunktiot voivat joskus aiheuttaa ongelmia
+		
+	-testit hakemistoon cypress/integation/examples
+		-poista valmiit esimerkkitestit
+		
+	-tietokannan resettaaminen
+		-luo oma testing router:
+			const router = require('express').Router()
+			const Blog = require('../models/blog')
+			const User = require('../models/user')
+
+			// router for resetting the database to the desired state for testing
+			router.post('/reset', async (request, response) => {
+			  await Blog.deleteMany({})
+
+			  // these users should be spared from the deletions and always be in the database
+			  const user1 = await User.findOne({ username: 'user1' }) 
+			  const user2 = await User.findOne({ username: 'user2' })
+
+			  await User.deleteMany({})
+			  await user1.save()
+			  await user2.save()
+			})
+			
+		-lisää testaus router app.js siten että se otetaan käyttöön VAIN testaus-moodissa
+		
+	-sisäänloggaaminen
+		  beforeEach(function() {
+			  const credentials = { username: 'eerojala', password: 'salasana' }
+			  cy.request('POST', 'http://localhost:3001/api/login', credentials)
+			})
+
+			it('A blog can be added', function() {
+			  
+			})
+		  })
+		
+	NOTE TO SELF: fixaa integraatiotestit (userit nyt resetataan kokonaan tietokannasta)
+	
+	-älä käytä async/await cypress-testeissä
+		"If you’re a modern JS programmer you might hear “asynchronous” and think: why can’t I just use async/await instead of learning some proprietary API?
+
+		Cypress’s APIs are built very differently from what you’re likely used to: but these design patterns are incredibly intentional. We’ll go into more detail later in this guide."
+		
+		"Without retry-ability, assertions would randomly fail. This would lead to flaky, inconsistent results. This is also why we cannot use new JS features like async / await."
+		
+	-cypress komennot on asynkronisia
+		-ei suoriteta heti luettaessa
+		-vaan funktion lukemisen jälkeen comennot laitetaan jonoon ja suoritetaan sitten
+		-eli jos seassa on ei-komento koodia se suoritetaan heti lukemisen yhteydessä toisin kuin cypress-komennot
+		
+	-testaa UI:n kautta operaatioita vain kerran (esim login)
+		-muuten tee loginit yms tietokantaoperaatiot suoraan APIn kautta
+		
+	-apukomennot määritellään tiedostoon cypress/support/commands.js
+	
+	-HUOM!!!! 
+		-ID:n perusteella tehtävä get (cy.get('#blog')) palauttaa vain yhden, vaikka olisi useampi elementti jolla sama id
+		-Käytä tälläiseen tarkoitukseen classNamea id:nsijasta
+			cy.get('.blog') // palauttaa kaikki tämän classin omaavat elementit
+			
+mongoose .save()
+	-palauttaa olion alkuperäisillä luontiparamtereillä
+		-lisäksi id on kentässä _id (täytyy muuttaa jos frontend olettaa .id)
+		
+Jest
+	-älä laita decribeihin asynciä, muuten valitaa:
+		Returning a Promise from “describe” is not supported. Tests must be defined synchronously
+		
+	-asyncit aina yksittäisiin testeihin ja before/aftereihin

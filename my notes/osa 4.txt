@@ -1,0 +1,361 @@
+jest
+	-Huomio Windows-käyttäjille: jest ei välttämättä toimi, jos projektin hakemistopolulla on hakemisto, jonka nimessä on välilyöntejä.
+	-testitiedostot kansioon tests
+		-testitiedostojen täytyy sisältää merkkijono .test
+			-hyvä konventio on laittaa .test ennen tiedostopäätettä, eli .test.js
+			
+	-jos haluaa testejä debugatessa ajaa vain tiettyjä testejä, lisää haluttuihin testeihin test perään .only
+		test.only('it is raining', () => {
+		  expect(inchesOfRain()).toBeGreaterThan(0); // tämä ajetaan
+		});
+
+		test('it is not snowing', () => {
+		  expect(inchesOfSnow()).toBe(0); // tätä ei ajeta
+		});
+		
+	-Jaottele testit loogisiin kokonaisuuksiin describen avulla
+		describe('totalLikes', () => {
+		  test('of an empty list is zero', () => {
+			const emptyBlogs = []  
+
+			expect(listHelper.totalLikes(emptyBlogs)).toBe(0)
+		  })
+
+		  test('of a single blog is the likes of the blog', () => {
+			const singleBlog = [{ likes: 2 }]
+
+			expect(listHelper.totalLikes(singleBlog)).toBe(2)
+		  })
+
+		  test('of a list of blogs is the sum of of the likes of its entries', () => {
+			expect(listHelper.totalLikes(blogs)).toBe(36)
+		  })
+		})
+		
+	-Kun testaat olioita eikä pelkkiä arvoja, käytä toBe sijasta toEqual (vertailee sisältöä eikä sitä että onko eksakti sama olio)
+	-Nullia (ja undefined yms, mutta nille omat funktiot) testataan näin:
+		expect(listHelper.favouriteBlog(emptyBlogs)).toBeNull()
+		
+	-Jos tulee seuraavanlainen virheilmoitus
+		"Jest did not exit one second afte the test run has completed jne.."
+		-Lisää projektin juureen tiedosto jest.config.js jolla seuraava sisältö:
+			module.exports = {
+			  testEnvironment: 'node'
+			}
+			
+	-toContain ja toContainEqual
+		-materiaalissa käytetään muutamaan kertaan matcheria toContain tarkistamaan onko jonkin arvo taulukossa
+			-metodi käyttää samuuden vertailuun === -operaattoria, joka olioiden kohdalla ei ole käypä (eli ilmeisesti tarkistaa onko eksakti sama olio eikä olio jolla sama sisältö)
+				-toi === olioiden kanssa aika hyvä tietää, lisää what I learned-osioon
+				
+			-olioiden kohdalla parempi vaihtoehto on toContainEqual
+		
+Reduce
+	-Reducea voi käyttää etsimään oliota jolla max arvo näin:
+		blogs.reduce((max, blog) => (blog.likes > max.likes ? blog : max), blogs[0]) // blogs[0] is the initial value
+		
+Map
+	-Javascriptin vastaava javan HashMapille on Map.
+	
+Backendin testaus
+	-Modelien yksikkötestaus ei ole tarpeellista, koska backend ei sisällä monimutkaista laskentaa
+		-Paitsi jos haluaa testata toJSON toimintaa yms.
+		-Apufunktioiden kuten list_helper yksikkötestaus on kyllä hyödyllistä
+		https://en.wikipedia.org/wiki/Unit_testing
+		
+	-Joissain tilanteissa voisi olla mielekästä suorittaa ainakin osa backendin testauksesta siten, että oikea tietokanta eristettäisiin testeissä ja korvattaisiin "valekomponenteilla"
+	eli mockilla.
+		-Eräs tähän sopiva ratkaisu olisi mongo-mock
+			https://github.com/williamkapke/mongo-mock
+			
+	-Koska sovelluksemme on suht yksinkertaienn, päätämme testata sitä kokonaisuudessaan sen tarjoaman REST-apin tasolla, sieten että myös testeissä käytetään tietokantaa
+		-Tämän kaltaisia useita sovelluksen komponentteja yhtäaikaa käyttäviä testejä voi luonnehtia integraatiotesteiksi
+			https://en.wikipedia.org/wiki/Integration_testing
+			
+Sovelluksen suoritusmoodi
+	-Noden konventio ääritellä suoritusmoodi ympäristömuuttujan NODE_ENV avulla
+	-Herokussa sovellus pyörii vissiin automaattisesti production-moodissa
+	
+	"scripts": {
+		"start": "NODE_ENV=production node index.js",    "dev": "NODE_ENV=development nodemon index.js",    "build:ui": "rm -rf build && cd ../../../2/luento/notes && npm run build && cp -r build ../../../3/luento/notes-backend",
+		"deploy": "git push heroku master",
+		"logs:prod": "heroku logs --tail",
+		"lint": "eslint .",
+		"test": "NODE_ENV=test jest --verbose --runInBand"  
+	},
+	
+	-runInBand estää testien rinnakkaisen suorituksen // viisasta jos testit käyttävät tietokantaa
+	
+Tietokannan testaaminen
+	-Suuremmissa monen tekijän projektissa voi olla järkevää että tietokantaa käyttävät testit tehdään siten että jokaisella devillä omassa koneessa paikallinen tietokanta
+	-Optimiratkaisu se että jokaista testiajoa varten olisi käytettävissä oma tietokanta
+		-Onnistuu "suht helposti" mm. keskusmuistissa toimivan Mongon ja docker-kontainereiden avula
+			https://docs.mongodb.com/manual/core/inmemory/
+			https://www.docker.com/
+	
+	-Menemme kuitenkin lyhyemmän kaavan mukaan ja käytämme yhtä erillistä testitietokantaa mongo atlasissa.
+	
+supertest
+	const mongoose = require('mongoose')
+	const supertest = require('supertest')
+	const app = require('../app')
+
+	const api = supertest(app)
+
+	test('notes are returned as json', async () => {
+	  await api
+		.get('/api/notes')
+		.expect(200)
+		.expect('Content-Type', /application\/json/)
+	})
+
+	afterAll(() => {
+	  mongoose.connection.close()
+	})
+	
+	
+	-Huom! annamme supertestille app.js, mutta olemme eriyttäneet sovelluksen varsinaisen käynnistämisen index.js:hän
+		-Supertest huolehtii testattavan sovelluksen käynnistämisesti sisäisesti käyttämäänsä porttiin
+		
+	-Huom!
+		-Yksittäisiä testejä suorittaessa mongoose-yhteys saattaa jäädä auki, mikäli yhtään yhteyttä hyödyntävää testiä ei ajeta
+			-Ongelma seurannee siitä, että supertest alustaa yhteyden, mutta jest ei suorita afterAll-osiota.
+			
+async - await
+	-ES7:n uusi syntaksi, jka mahdollistaa promisen palauttavien asynkronisten funktioiden kutsumisen siten, että kirjoitettava koodi näyttää synkroniselta
+	
+	-Muistiinpanojen haku:
+		-Promiseilla:
+			Note.find({})
+			  .then(notes => {
+				return notes[0].remove()
+			  })
+			  .then(response => {
+				console.log('the first note is removed')
+				// more code here
+			  })
+			
+		-async/await:
+			const main = async () => {  
+				const notes = await Note.find({}) // suoritus päättyy kunnes operaatio valmis jonka jälkeen jatkaa seuraavalta riviltä, kun suoritus jatkuu tulos tallennettuna muuttuujaan notes
+				console.log('operaatio palautti seuraavat muistiinpanot', notes)
+
+				const response = await notes[0].remove()
+				console.log('the first note is removed')
+			}
+			
+	-selkeä syntaksi ja ei pitkiä promise-ketjuja
+	-huom! await voi käyttää vain funktioiden sisällä jotka määritelty async:iksi (ylhäällä esimerkki)
+	-huom!2 jotta synkronisia operaatioita voi kutsua awaitin avulla, niiden täytyy palauttaa promiseja
+		-Tämä ei sinänsä ole ongelma sillä myös "normaaleja" callbackeja käyttävä asynkroninen koodi on helppo kääriä promiseiksi
+		
+	-Esimerkki async/await käyttävästä routerin funktiosta:
+		blogsRouter.get('', async (request, response) => {
+		  const blogs = await Blog.find({})
+
+		  response.json(blogs.map(blog => blog.toJSON()))
+		})
+		
+	HUOM!!!! ÄLÄ LAITA funktion async turhaan
+		-muuten saa funktion palauttamaan halutun arvon sijasta promisen (tämän takia piti debuggaila joku 30min...)
+		
+		jos funktio async:
+			const returnedValue = function() // palauttaa promisen
+			const returnedValue = await function() // palauttaa arvon
+		
+		jos funktio ei async:
+			const returnedValue = function()
+			const returnedValue = await function() // palauttaa arvon, turhaan awaitin kutsumisella ei näyttäisi olevan väliä, mutta parempi olla käyttämättä jotta koodin ymmärtää oikein
+			
+	-await voi käyttää vain async-funktioiden sisällä
+Suhteelliset osoitteet
+	-Muista aina suhteellisissa osoitteissa kauttaviiva ensimmäiseksi!!!
+		await api.post('/api/blogs') eikä .post('api/blogs')
+		-Tämän takia meni joku vartti debuggaamiseen!
+		
+Testaaminen
+	-Kun luot uusia testejä tai debuggaat vanhoja, aja yksi testitiedosto kerrallaan, ja käytä test.only määrittelemään mitä testejä ajetaan
+	-Muuten aja kaikki testit
+	
+deep vs shallow copy
+	-Shallow copy kopioi referenssin objektiin, muutokset kopiossa näkyvät alkuperäisessä ja päinvastoin
+	-Deep copy kopioi objektin arvot, muutokset kopiossa eivät näy alkuperäisessä ja päinvastoin (paitsi jos on shallow kopioitu sisäinen objekti)
+	
+	-Funktio joka tekee semi-deep kopion listasta ja poistaa sen arvoilta id:n:
+		const removeIds = (objects) => {
+		  const copies = objects.map(o => {
+			const copy = {...o} // create a new object with fields copied from 0
+			delete copy.id // delete field id from the copy
+
+			return copy 
+		  })
+
+		  // console.log(objects) // the original objects still have their ids
+		  // console.log(copies) // the copies do not
+
+		  // return an array with new objects copied from the original objects array except they do not have the field id (i.e. a deep copy)
+		  // NOTE: if the object has nested objects, they will not be deep copied but be referenced instead (so if the original nested object is modified, the copy's nested object will be modified as well)
+		  return copies 
+		}
+		
+		https://stackoverflow.com/questions/597588/how-do-you-clone-an-array-of-objects-in-javascript
+			But if myArray contained a bunch of Dinosaurs, newArray contains a bunch of Objects. That's lame, don't you agree? – Matthew James Davis Mar 27 '17 at 20:09
+				@MatthewJamesDavis you can solve this by replacing {} with new Dinosaur().
+				
+			
+			This is slightly deeper, it creates new objects for each element, but if the objects contain objects themselves, they will not be copied, they will be references. – ADJenks Nov 26 '19 at 22:02
+
+	kato pitääkö tää paikkansa objektien kohdalla
+		=== // deep equal
+		== // shallow equal
+		
+		EI PIDÄ!, === katsoo vain reference equalityä
+		
+		Lodashilla vissiin valmis deep equality vertaaminen
+			https://stackoverflow.com/questions/201183/how-to-determine-equality-for-two-javascript-objects
+			https://lodash.com/
+		
+		
+	https://www.geeksforgeeks.org/what-is-shallow-copy-and-deep-copy-in-javascript/
+		
+Monen promisen suorittaminen
+	  await Blog.deleteMany({})
+
+	  // // This does not work, since the awaits are considered to be in a separate function than beforeEach, so beforeEach will not wait for all the awaits
+	  // initialBlogs.forEach(async (blog) => {
+	  //   let blogObject = new Blog(blog)
+
+	  //   await blogObject.save()
+	  // })
+
+	  // // This works, but Promise.all runs all the inputed promises simultaneously. This can be a problem if you want to run the promises in a specifed order
+	  // const blogObjects = initialBlogs.map(blog => new Blog(blog))
+	  // const promiseArray = blogObjets.map(blog => blog.save())
+	  // await Promise.all(promiseArray)
+
+	  // // If you want to save in a specific order, then this works (since it is considered to be inside the beforeEach function instead of a separate one)
+	  // for (let blog of initialBlogs) {
+	  //   let blogObject = new Blog(blog)
+
+	  //   await blogObject.save()
+	  // }
+
+	  // This is the simplest way to save the initial blogs
+	  await Blog.insertMany(initialBlogs)
+	  
+MongoDB
+	-Jos dokumentilla on alisteinen olio kenttänään, tälle sisäiselle oliolle ei välttämättä tarvitse luoda omaa ID:tä
+		[
+		  {
+			username: 'mluukkai',
+			_id: 123456,
+			notes: [
+			  {
+				content: 'HTML is easy',
+				important: false,
+			  },
+			  {
+				content: 'The most important operations of HTTP protocol are GET and POST',
+				important: true,
+			  },
+			],
+		  },
+		  {
+			username: 'hellas',
+			_id: 141414,
+			notes: [
+			  {
+				content:
+				  'A proper dinosaur codes with Java',
+				important: false,
+			  },
+			],
+		  },
+		]
+		
+	-Toiseen kokoelmaan viittaaminen:
+		const userSchema = mongoose.Schema({
+		  username: String,
+		  name: String,
+		  passwordHash: String,
+		  notes: [
+			{
+			  type: mongoose.Schema.Types.ObjectId,
+			  ref: 'Note'
+			}
+		  ],
+		})
+		
+		-notes:in kentän tyyppi on ObjectId joka viittaa note-tyyppisiin dokumentteihin
+		-Mongo ei itsessään tiedä mitään siitä, että kyse on kentästä joak viittaa nimenomaan muistiinpanoihin
+			-kyseessä on mongoosen oma syntaksi
+			
+		-User on sitten vastaavasti:
+			const noteSchema = new mongoose.Schema({
+			  content: {
+				type: String,
+				required: true,
+				minlength: 5
+			  },
+			  date: Date,
+			  important: Boolean,
+			  user: {    
+				type: mongoose.Schema.Types.ObjectId,    
+				ref: 'User'  
+			  }
+			})
+			
+			-viite on tallennettu nyt molempiin dokumentteihin
+				-huom. näin ei ole kuitenkaan pakko tehdä, jos ei haluta päästä suoraan käyttäjään noten kautta
+				
+bcrypt
+	https://codahale.com/how-to-safely-store-a-password/
+	
+Populate:
+	-jos kokoelman dokumenteilla on yksi toiseen kokoelmaan viittava id (esim blog.user), populate on yksikössä:
+		const blogs = await Blog.find({}).populate('user')
+		
+	-jos kokoelman dokumenteilla on taulukko toiseen kokoelmaan viittaavia id:tä (esim user.blogs), populate on monikossa:
+		const users = await User.find({}).populate('blogs')
+		
+Token
+	-Sekvenssikaavio:
+		-Käyttäjä kirjautuu sisään: HTTP POST /api/login { username, password} 
+		-Backend luo tokenin joka identifioi käyttäjän
+		-Backend palauttaa tokenin käyttäjälle: message.body.token
+		-Käyttäjän selain tallettaa tokenin, esimerkiksi React-sovelluksen tilaan
+		
+		-Käyttäjä luo muistiinpanon: HTTP POST /api/notes { content, date } TOKEN headerissä
+		-Backend identifioi käyttäjän tokenin perusteella, lisää luodun muistiinpanot luojaksi tämän käyttäjän
+		-201 created
+		
+	-Tapoja tokenin välittämiseen selaimesta backendiin on useita
+		-Käytämme ratkaisussamme Authorization-headeria
+			https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Authorization
+			
+		-Tokenin lisäksi headerin avulla kerrotaan mistä autentikointiskeemasta on kyse
+			-Tämä voi olla tarpeen jos palvelin tarjoaa useita eri tapoja autentikointiin
+			-Skeeman ilmaiseminen kertoo näissä tapauksissa palvelimille, miten mukana olevat kredentiaalit tulee tulkita
+				-Meidän käyttöömme sopii Bearer-skeema
+				
+			https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication#authentication_schemes
+			
+		-Esim jos token on esimerkiksi merkkijono eyJhbGciOiJIUzI1NiIsInR5c2VybmFtZSI6Im1sdXVra2FpIiwiaW ja käytämme Bearer-skeema, pyynnöissä tulee laittaa headerin 
+		Authorization arvoksi merkkijono
+			Bearer eyJhbGciOiJIUzI1NiIsInR5c2VybmFtZSI6Im1sdXVra2FpIiwiaW
+			
+		
+	-Jos sovelluksessa on useampia rajapintoja jotka vaativat kirjautumisen, kannattaa JWT:n validointi erityttää omaksi middlewarekseen	
+		-tai käyttää jotain jo olemassa olevaa kirjastoa kuten express-jwt
+		https://github.com/auth0/express-jwt
+		
+VS rest client
+	-HUOM: headerien ja contentin välissä tulee olla yksi väli!!!!!!!!!!!!
+	
+	Välillä debugatessa tulee vastaan tilanteita, joissa backendissä on tarve selvittää, mitä headereja HTTP-pyynnöille on asetettu. Eräs menetelmä tähän on request-olion melko kehnosti nimetty metodi get, jonka avulla voi 
+	selvittää yksittäisen headerin arvon. request-oliolla on myös kenttä headers, jonka arvona ovat kaikki pyyntöön liittyvät headerit.
+
+	Ongelmia voi esim. syntyä, jos jätät vahingossa VS Coden REST-clientillä ylimmän rivin ja headerit määrittelevien rivien väliin tyhjän rivin. Tällöin REST-client tulkitsee, että millekään headerille ei aseteta arvoa ja näin 
+	backend ei osaa tulkita pyynnön mukana olevaa dataa JSON:iksi.
+
+	Puuttuvan content-type-headerin ongelma selviää, kun backendissa tulostaa pyynnön headerit esim. komennolla console.log(request.headers).
